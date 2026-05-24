@@ -3,4 +3,4 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"
-python -m pytest "$SCRIPT_DIR/tests" -v "$@"
+python3 -m pytest "$SCRIPT_DIR/tests" -v "$@"

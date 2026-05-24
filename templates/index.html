@@ -50,6 +50,17 @@
             margin-left: 0.3rem;
         }
 
+        .policy-banner {
+            background: #fff3cd;
+            border-left: 4px #ffc107;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #856404;
+            max-width: 800px;
+            margin: 1rem auto;
+        }
+
         /* Main container */
         .container {
             max-width: 800px;
@@ -184,11 +195,15 @@
             {% if session.role == 'supervisor' %}
             <a href="{{ url_for('admin') }}">Admin</a>
             {% endif %}
-            <span class="role-badge">{{ session.role }}</span>
+            <span class="role-badge">{% if user_role %}{{ user_role }}{% else %}{{ session.role }}{% endif %}</span>
             <span>{{ session.username }}</span>
             <a href="{{ url_for('logout') }}">Logout</a>
         </div>
     </nav>
+
+    <div class="policy-banner">
+        <p>This tool is for internal decision support. Final ownership remains with human operators.</p>
+    </div>
 
     <div class="container">
         <div class="flash-messages">
