@@ -1,13 +1,14 @@
 """Route definitions for the triage application.
 
-This module is framework-agnostic in spirit — the Flask-specific bits
-(render template, redirect, session) only exist inside the handlers.
-The session-loading hook is registered via `register_hooks`.
+Handles HTTP concerns -- parsing, rendering, session management.
+Business logic is delegated to services/ which remain framework-independent.
+Governance features: input validation, P1 approval gate, audit logging, PII redaction.
 """
 from __future__ import annotations
 
 import json
 import logging
+from functools import wraps
 
 from flask import (
     Flask,
@@ -20,11 +21,22 @@ from flask import (
     url_for,
 )
 
-from core.database import seed_users, session as db_session
+from core.database import (
+    seed_users,
+    session as db_session,
+    list_incidents,
+    save_audit_log,
+    list_audit_log,
+    save_incident,
+    severity_to_level,
+)
 from core.config import SEED_USERS
+from core.gov_config import P1_APPROVAL_ENABLED
+from core.redactor import redact
 from services.auth_service import find_user_by_username, verify_password
+from services.severity_service import classify_severity
 from services.triage_service import run_triage
-from services import auth_service
+from services.validation import validate_incident_input, ValidationError
 
 logger = logging.getLogger("ops-triage")
 
@@ -37,7 +49,7 @@ def setup_before_request(app: Flask) -> None:
     """Attach current user to `g` on every request."""
 
     @app.before_request
-    def _load_user() -> None:  # type: ignore[misc]
+    def _load_user() -> None:
         if "user_id" not in session:
             g.user = None
             return
@@ -53,9 +65,7 @@ def setup_before_request(app: Flask) -> None:
 # Decorator shims
 # ---------------------------------------------------------------------------
 
-from functools import wraps
-
-def login_required(view_func):  # type: ignore[misc]
+def login_required(view_func):
     @wraps(view_func)
     def wrapped(*args, **kwargs):
         if "user_id" not in session:
@@ -65,13 +75,11 @@ def login_required(view_func):  # type: ignore[misc]
     return wrapped
 
 
-def role_required(*roles):  # type: ignore[misc]
+def role_required(*roles):
     def decorator(f):
         @wraps(f)
+        @login_required
         def wrapped(*args, **kwargs):
-            if "user_id" not in session:
-                flash("Please log in to access this page.", "warning")
-                return redirect(url_for("login"))
             if session.get("role") not in roles:
                 flash("You do not have permission to access this page.", "danger")
                 return redirect(url_for("triage"))
@@ -125,17 +133,35 @@ def _register_triage_routes(router: Flask) -> None:
     @router.route("/triage")
     @login_required
     def triage():
-        return render_template("index.html")
+        return render_template("index.html", user_role=session.get("role"))
 
     @router.route("/triage/submit", methods=["POST"])
     @login_required
     def triage_submit():
         form = request.form
-        required = ["title", "description", "business_area", "system_affected",
-                    "impact_level", "urgency", "customer_impact"]
-        if not all(form.get(f) for f in required):
-            flash("All fields are required.", "danger")
+        errors = validate_incident_input(
+            form.get("title", ""),
+            form.get("description", ""),
+            form.get("business_area", ""),
+            form.get("system_affected", ""),
+            form.get("impact_level", ""),
+            form.get("urgency", ""),
+            form.get("customer_impact", ""),
+        )
+        if errors:
+            for err in errors:
+                flash(f"{err.field}: {err.message}", "danger")
             return redirect(url_for("triage"))
+
+        # Determine approval status before calling run_triage so the DB
+        # save reflects the correct value.
+        severity, _ = classify_severity(
+            form["impact_level"], form["urgency"], form["customer_impact"],
+        )
+        if severity == "P1" and session.get("role") != "supervisor" and P1_APPROVAL_ENABLED:
+            approval_status = "pending"
+        else:
+            approval_status = "approved"
 
         result = run_triage(
             title=form["title"],
@@ -146,9 +172,31 @@ def _register_triage_routes(router: Flask) -> None:
             urgency=form["urgency"],
             customer_impact=form["customer_impact"],
             submitted_by=session["username"],
+            approval_status=approval_status,
         )
 
-        logger.info("Triage complete: severity=%s team=%s", result["severity"], result["suggested_team"])
+        result["requires_approval"] = approval_status == "pending"
+        result["submitted_by_role"] = session.get("role")
+
+        # Record audit log (description redacted)
+        save_audit_log({
+            "username": session["username"],
+            "role": session.get("role"),
+            "incident_id": None,  # ID not yet assigned (handled by triage_service)
+            "severity": result["severity"],
+            "team": result["suggested_team"],
+            "action": "submitted",
+            "reason": result["status"],
+        })
+
+        redacted_desc = redact(result["description"])[:100]
+        logger.info(
+            "Triage: sev=%s team=%s status=%s desc_len=%d",
+            result["severity"],
+            result["suggested_team"],
+            result["status"],
+            len(redacted_desc),
+        )
         return render_template("result.html", result=result)
 
     @router.route("/api/triage", methods=["POST"])
@@ -159,10 +207,28 @@ def _register_triage_routes(router: Flask) -> None:
         if not data:
             return {"error": "Invalid or missing JSON body"}, 400
 
-        required = ["title", "description", "business_area", "system_affected",
-                    "impact_level", "urgency", "customer_impact"]
-        if not all(data.get(f) for f in required):
-            return {"error": f"Missing required fields: {required}"}, 400
+        errors = validate_incident_input(
+            data.get("title", ""),
+            data.get("description", ""),
+            data.get("business_area", ""),
+            data.get("system_affected", ""),
+            data.get("impact_level", ""),
+            data.get("urgency", ""),
+            data.get("customer_impact", ""),
+        )
+        if errors:
+            error_items = [{"field": e.field, "message": e.message} for e in errors]
+            return {"error": "Validation failed", "details": error_items}, 400
+
+        # Determine approval status before calling run_triage so the DB
+        # save reflects the correct value.
+        severity, _ = classify_severity(
+            data["impact_level"], data["urgency"], data["customer_impact"],
+        )
+        if severity == "P1" and session.get("role") != "supervisor" and P1_APPROVAL_ENABLED:
+            approval_status = "pending"
+        else:
+            approval_status = "approved"
 
         result = run_triage(
             title=data["title"],
@@ -173,9 +239,29 @@ def _register_triage_routes(router: Flask) -> None:
             urgency=data["urgency"],
             customer_impact=data["customer_impact"],
             submitted_by=session["username"],
+            approval_status=approval_status,
         )
 
-        logger.info("Triage complete (API): severity=%s team=%s", result["severity"], result["suggested_team"])
+        result["requires_approval"] = approval_status == "pending"
+        result["submitted_by_role"] = session.get("role")
+
+
+        # Record audit log
+        save_audit_log({
+            "username": session["username"],
+            "role": session.get("role"),
+            "incident_id": None,
+            "severity": result["severity"],
+            "team": result["suggested_team"],
+            "action": "submitted",
+            "reason": result["status"],
+        })
+        logger.info(
+            "Triage (API): sev=%s team=%s status=%s",
+            result["severity"],
+            result["suggested_team"],
+            result["status"],
+        )
 
         response_data = {
             "incident": {
@@ -193,6 +279,8 @@ def _register_triage_routes(router: Flask) -> None:
             "escalation_recommendation": result["escalation_recommendation"],
             "handoff_summary": result["handoff_summary"],
             "mock_payload": result["mock_payload"],
+            "status": result["status"],
+            "requires_approval": result["requires_approval"],
         }
         return json.dumps(response_data), 200, {"Content-Type": "application/json"}
 
@@ -203,13 +291,13 @@ def _register_triage_routes(router: Flask) -> None:
 
 def _register_audit_routes(router: Flask) -> None:
     """Register the audit log view."""
-    from core.database import list_incidents
 
     @router.route("/audit")
     @login_required
     def audit():
         incidents = list_incidents()
-        return render_template("audit.html", incidents=incidents)
+        audit_entries = list_audit_log()
+        return render_template("audit.html", incidents=incidents, audit_entries=audit_entries)
 
 
 # ---------------------------------------------------------------------------

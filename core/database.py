@@ -63,8 +63,28 @@ CREATE TABLE IF NOT EXISTS incidents (
     handoff_summary TEXT,
     mock_payload TEXT,
     submitted_by TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'approved',
+    severity_level INTEGER NOT NULL DEFAULT 4,
     submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    username TEXT NOT NULL,
+    role TEXT NOT NULL,
+    incident_id INTEGER,
+    severity TEXT,
+    team TEXT,
+    action TEXT NOT NULL,
+    reason TEXT
+);
+"""
+
+# Migration DDL for existing databases that pre-date PR #4 governance changes
+MIGRATION_SQL: str = """\
+ALTER TABLE incidents ADD COLUMN status TEXT NOT NULL DEFAULT 'approved';
+ALTER TABLE incidents ADD COLUMN severity_level INTEGER NOT NULL DEFAULT 4;
 """
 
 
@@ -72,6 +92,13 @@ def init_schema(db_path: str | None = None) -> None:
     """Execute schema DDL so tables exist before any app code runs."""
     with session(db_path) as conn:
         conn.executescript(SCHEMA_SQL)
+
+        # Safely apply migration DDL — SQLite silently ignores errors when
+        # the column / table already exists (e.g. on fresh or already-migrated DBs).
+        try:
+            conn.executescript(MIGRATION_SQL)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -97,13 +124,22 @@ INSERT INTO incidents (
     impact_level, urgency, customer_impact,
     severity, severity_description, suggested_team,
     escalation_recommendation, handoff_summary, mock_payload,
-    submitted_by
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    submitted_by, status, severity_level
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"""
+
+def severity_to_level(severity_label: str) -> int:
+    """Map a severity label like P1 -> 1, P4 -> 4."""
+    return int(severity_label.lstrip("P")) if severity_label and severity_label.startswith("P") else 4
+
+INSERT_AUDIT_LOG_SQL: str = """\
+INSERT INTO audit_log (username, role, incident_id, severity, team, action, reason)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 """
 
 
 def save_incident(incident: dict, db_path: str | None = None) -> None:
-    """Persist a fully-classified incident."""
+    """Persist a fully-classified incident with approval status."""
     with session(db_path) as conn:
         conn.execute(INSERT_INCIDENT_SQL, (
             incident["title"],
@@ -120,12 +156,39 @@ def save_incident(incident: dict, db_path: str | None = None) -> None:
             incident["handoff_summary"],
             incident["mock_payload"],
             incident["submitted_by"],
+            incident.get("status", "approved"),
+            severity_to_level(incident.get("severity", "P4")),
         ))
 
 
 def list_incidents(db_path: str | None = None) -> list[sqlite3.Row]:
-    """Return the newest incident log rows."""
+    """Return the newest incident log rows with status and severity info."""
     with session(db_path) as conn:
         return conn.execute(
-            "SELECT id, title, severity, submitted_by, submitted_at FROM incidents ORDER BY submitted_at DESC"
+            "SELECT id, title, severity, severity_level, submitted_by, submitted_at, status"
+            " FROM incidents ORDER BY submitted_at DESC"
+        ).fetchall()
+
+
+def save_audit_log(entry: dict, db_path: str | None = None) -> None:
+    """Record an audit trail entry."""
+    with session(db_path) as conn:
+        conn.execute(INSERT_AUDIT_LOG_SQL, (
+            entry["username"],
+            entry["role"],
+            entry["incident_id"],
+            entry.get("severity"),
+            entry.get("team"),
+            entry["action"],
+            entry.get("reason"),
+        ))
+
+
+def list_audit_log(limit: int = 50, db_path: str | None = None) -> list[sqlite3.Row]:
+    """Return recent audit log entries."""
+    with session(db_path) as conn:
+        return conn.execute(
+            "SELECT id, timestamp, username, role, incident_id, severity, team, action, reason"
+            " FROM audit_log ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
         ).fetchall()

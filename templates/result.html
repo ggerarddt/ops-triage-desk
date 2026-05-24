@@ -53,6 +53,18 @@
         .severity-P2 { color: #e67e22; }
         .severity-P3 { color: #f1c40f; }
         .severity-P4 { color: #95a5a6; }
+        .status-approved { background: #d4edda; color: #155724; padding: 0.15rem 0.6rem; border-radius: 3px; font-weight: 600; font-size: 0.82rem; }
+        .status-pending { background: #fff3cd; color: #856404; padding: 0.15rem 0.6rem; border-radius: 3px; font-weight: 600; font-size: 0.82rem; }
+        .policy-banner {
+            background: #fff3cd;
+            border-left: 4px #ffc107;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #856404;
+            max-width: 800px;
+            margin: 1rem auto;
+        }
         pre {
             background: #2c3e50;
             color: #ecf0f1;
@@ -83,6 +95,10 @@
         </div>
     </nav>
 
+    <div class="policy-banner">
+        <p>This tool is for internal decision support. Final ownership remains with human operators.</p>
+    </div>
+
     <div class="container">
         <div class="result-box">
             <h1>Classification Result</h1>
@@ -109,6 +125,10 @@
                         <span class="severity-{{ result.severity }}">{{ result.severity }}</span>
                     </div>
                     <div class="field-item"><label>Team</label><span>{{ result.suggested_team }}</span></div>
+                    <div class="field-item">
+                        <label>Status</label>
+                        <span class="status-{{ result.status }}">{{ result.status|upper }}</span>
+                    </div>
                 </div>
                 <p style="margin-top:0.5rem;"><strong>Description:</strong> {{ result.severity_description }}</p>
                 <p><strong>Escalation:</strong> {{ result.escalation_recommendation }}</p>
@@ -118,6 +138,14 @@
                 <legend>Handoff Summary</legend>
                 <p>{{ result.handoff_summary }}</p>
             </fieldset>
+
+            {% if result.requires_approval and result.status == 'pending' %}
+            <fieldset>
+                <legend>Important – Pending Approval</legend>
+                <p>This incident is classified as <strong>{{ result.severity }}</strong> and requires supervisor approval before any external or actionable escalation steps should be taken.</p>
+                <p style="color: #856404;">Do not page external teams until the status changes to "approved".</p>
+            </fieldset>
+            {% endif %}
 
             <fieldset>
                 <legend>Mock Outbound Payload</legend>
