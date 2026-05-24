@@ -1,0 +1,100 @@
+Enhance the Operational Incident Triage Desk with lightweight security, governance, audit controls, and persisted P1 approval state suitable for an enterprise internal tool.
+
+Workflow guardrails:
+- Before doing any work, confirm this is an existing git repository with a GitHub remote:
+  - git status
+  - git remote -v
+- Detect the repository's default branch from GitHub or the remote configuration. Do not assume it is named master.
+- Switch to the default branch and pull the latest code from GitHub:
+  - git checkout <default-branch>
+  - git pull --ff-only origin <default-branch>
+- Confirm the previous prompt's PR has been merged before starting.
+- Create a new feature branch for this prompt.
+- Implement only the scope in this prompt.
+- Run the full test suite.
+- Push the feature branch and open a pull request against the default branch.
+- Pushing the branch is not sufficient; PR creation is a required final action unless blocked by authentication or tooling.
+- Stop only after the pull request has actually been created and report its URL. Do not continue to the next prompt until a human merges the PR on GitHub.
+
+Context:
+The app is now structured and tested. This step should add visible operational controls without pretending to be a full production platform. Keep the implementation local, but use SQLite persistence for users, incidents, approvals, and audit records.
+
+Governance goals:
+- Make safety and human ownership explicit.
+- Validate inputs consistently.
+- Redact sensitive data in logs.
+- Record a durable local audit trail in SQLite.
+- Gate P1 external/actionable escalation behind supervisor approval.
+- Use the real logged-in role from the seeded users; do not use a role dropdown or simulated role selection.
+
+Required features:
+1. Input validation
+   - Validate title and description are present for form submissions.
+   - Enforce maximum lengths from governance settings.
+   - Validate impact, urgency, and customer_impact against allowed values.
+   - Return friendly validation messages in the UI.
+   - For the JSON API, return a clear 400 with errors for invalid required fields.
+2. Governance configuration
+   - Add core/gov_config.py with:
+     - allowed values for impact, urgency, and customer impact,
+     - max title length,
+     - max description length,
+     - p1_approval_enabled flag,
+     - approval status constants.
+3. Sensitive data redaction
+   - Add core/redactor.py.
+   - Redact likely email addresses, US phone numbers, US SSNs, and credit card-like numbers from logs.
+   - Ensure logs do not expose raw incident descriptions containing those patterns.
+4. Audit trail
+   - Store audit records in SQLite.
+   - Record each submission with:
+     - timestamp,
+     - submitter username,
+     - submitter role,
+     - incident id,
+     - severity,
+     - selected owner team,
+     - escalation or approval reason,
+     - approval status.
+   - Add GET /audit to render the audit trail for operators and supervisors.
+5. P1 approval gate
+   - If a P1 is submitted by an operator, store it as pending supervisor approval.
+   - If a P1 is submitted by a supervisor, store it as approved.
+   - Non-P1 incidents do not require supervisor approval.
+   - The UI should clearly show whether a P1 is pending or approved.
+   - The outbound payload may still be displayed, but the UI must state that external/actionable steps require approval when pending.
+6. Incident storage for pending review
+   - Store P1 incidents in SQLite with incident id, title, description, business area, system affected, impact, urgency, customer impact, severity, team, submitter, status, created_at, approver, approval time, and reason.
+
+UI requirements:
+- Add a concise policy banner:
+  - This tool is for internal decision support.
+  - Final ownership remains with human operators.
+- Add navigation links for triage, admin, and audit.
+- Only supervisors should see and access admin.
+- Operators should see only triage and audit.
+- Keep the UI plain, readable, and operational.
+- Rely on Jinja escaping for displayed user content.
+
+Testing requirements:
+- Extend tests for:
+  - validation behavior,
+  - persisted audit record creation,
+  - P1 pending behavior for operator,
+  - P1 approved behavior for supervisor,
+  - role-based admin access,
+  - redaction helper behavior,
+  - example auto-fill button regression.
+- Keep tests fast and use a temporary SQLite database.
+- Reset or recreate test database state between tests.
+
+Instructions:
+1. Implement the governance, validation, redaction, audit, and P1 approval gate.
+2. Keep all state local, but persist it in SQLite.
+3. Run the full test suite.
+4. Explain which changes support safety, governance, auditability, and operational control.
+5. Push the branch and open a pull request, then stop:
+   - git push -u origin <feature-branch>
+   - gh pr create --base <default-branch> --head <feature-branch> --title "Add governance and P1 approval controls" --body "Summary: <what changed>. Tests: <commands run and results>."
+   - Verify the PR exists with gh pr view or by opening the returned URL.
+   - If GitHub CLI is not authenticated or available, provide the exact GitHub compare URL in the form https://github.com/<owner>/<repo>/compare/<default-branch>...<feature-branch>?expand=1 and say that manual PR creation is required. Do not claim the PR was opened unless it was created successfully.

@@ -1,0 +1,148 @@
+Add supervisor admin operations, submission editing, and handover documentation to complete the Operational Incident Triage Desk demo.
+
+Workflow guardrails:
+- Before doing any work, confirm this is an existing git repository with a GitHub remote:
+  - git status
+  - git remote -v
+- Detect the repository's default branch from GitHub or the remote configuration. Do not assume it is named master.
+- Switch to the default branch and pull the latest code from GitHub:
+  - git checkout <default-branch>
+  - git pull --ff-only origin <default-branch>
+- Confirm the previous prompt's PR has been merged before starting.
+- Create a new feature branch for this prompt.
+- Implement only the scope in this prompt.
+- Run the full test suite and perform a manual smoke test of the supervisor workflow.
+- Push the feature branch and open a pull request against the default branch.
+- Pushing the branch is not sufficient; PR creation is a required final action unless blocked by authentication or tooling.
+- Stop only after the pull request has actually been created and report its URL.
+
+Context:
+The app now has triage, tests, SQLite-backed users, login, role-based access, governance, audit, and P1 approval gating. This final step should turn the tool into a more complete enterprise-style internal workflow while staying lightweight and local. Supervisors must be able to review, correct, approve, deny, reclassify, and audit high-priority submissions.
+
+Supervisor admin workflow requirements:
+1. Admin dashboard
+   - Add or complete GET /admin.
+   - Require supervisor role.
+   - Show three sections:
+     - pending P1 escalations,
+     - approved P1 incidents,
+     - denied or reclassified P1 incidents.
+   - Show counts for each section.
+   - For each incident, show incident id, title, severity, team, submitter, created time, and status.
+2. Supervisor approval
+   - Add POST /admin/approve.
+   - Accept form data and JSON.
+   - Require incident_id.
+   - Accept approver from the logged-in supervisor, not from a free-form user field.
+   - Accept optional reason.
+   - Approve only pending P1 incidents.
+   - Record an audit entry.
+   - Return a redirect for form requests and useful JSON errors for API-style requests.
+3. Supervisor denial
+   - Add POST /admin/deny.
+   - Accept form data and JSON.
+   - Require incident_id and denial reason.
+   - Deny only pending P1 incidents.
+   - Preserve original severity.
+   - Record denied_by, denied_at, reason, and an audit entry.
+4. Supervisor reclassification
+   - Add POST /admin/reclassify.
+   - Accept form data and JSON.
+   - Require incident_id and reclassification reason.
+   - Allow reclassification from P1 to P2, P3, or P4.
+   - Preserve original severity.
+   - Record reclassified_to, approver, reason, and an audit entry.
+5. Submission editing
+   - Add the ability for supervisors to edit pending P1 submissions before approval, denial, or reclassification.
+   - Add GET /admin/edit/<incident_id> to render an edit form.
+   - Add POST /admin/edit/<incident_id> to save edits.
+   - Editable fields:
+     - title
+     - description
+     - business area
+     - system affected
+     - impact
+     - urgency
+     - customer impact
+   - Re-run severity classification and team routing after edits.
+   - If the edited incident is no longer P1, move it to reclassified status and record the new severity.
+   - If it remains P1, keep it pending.
+   - Do not allow editing approved, denied, or already-reclassified incidents.
+   - Record an audit entry that indicates the submission was edited and includes the resulting severity/team.
+6. Store design
+   - Keep persistence in SQLite.
+   - Add incident-store methods such as:
+     - get_by_id()
+     - get_pending_p1s()
+     - get_all_filtered_by(status)
+     - approve()
+     - deny()
+     - reclassify()
+     - update_pending()
+   - Keep filtering inside the store layer rather than repeating list scans in route handlers.
+
+Architecture and code quality requirements:
+- Keep app.py as a small bootstrap file.
+- Keep router.py responsible for HTTP parsing, view context, redirects, and JSON responses.
+- Keep business rules in services.
+- Keep data structures in core.
+- Avoid duplicating severity/routing logic in the admin routes.
+- Keep route handlers short by using small parser/presenter helpers if helpful.
+- Preserve the existing /, /triage, /api/triage, /audit, login, and logout behavior.
+- Keep the app local and dependency-light.
+- Keep example auto-fill buttons working after all template changes.
+
+Testing requirements:
+- Add or update tests for:
+  - GET /admin as supervisor,
+  - denying /admin as operator,
+  - approving pending P1s,
+  - denying pending P1s,
+  - reclassifying pending P1s,
+  - rejecting missing incident ids,
+  - requiring rationale for deny and reclassify,
+  - editing a pending P1 and keeping it pending when it remains P1,
+  - editing a pending P1 and moving it out of pending when severity drops,
+  - preventing edits to approved, denied, or reclassified incidents,
+  - audit entries for approve, deny, reclassify, and edit,
+  - example auto-fill buttons still populate all fields.
+- Run the full suite with python -m pytest tests/ -v.
+
+Documentation requirements:
+Create or update README.md with:
+- project purpose,
+- business scenario,
+- seeded users and default passwords,
+- main features,
+- architecture summary,
+- how to run locally,
+- how to run tests,
+- limitations.
+
+Create or update ARCHITECTURE.md with:
+- main components,
+- request flows for login, web triage, JSON triage, approval, denial, admin review, reclassification, and edit,
+- severity and routing logic overview,
+- mock integration point,
+- logging and redaction,
+- audit trail,
+- governance and admin controls,
+- design decisions and tradeoffs.
+
+Limitations to document clearly:
+- demo authentication only,
+- local SQLite state only,
+- no CSRF protection unless implemented,
+- mock integration only,
+- local deployment only.
+
+Instructions:
+1. Implement supervisor review, approval, denial, reclassification, and pending-submission editing.
+2. Update tests and run them.
+3. Update README.md and ARCHITECTURE.md.
+4. End with a concise summary of the final product and the exact commands to run the app and tests.
+5. Push the branch and open a pull request, then stop:
+   - git push -u origin <feature-branch>
+   - gh pr create --base <default-branch> --head <feature-branch> --title "Add supervisor admin workflow" --body "Summary: <what changed>. Tests: <commands run and results>. Smoke test: <workflow checked>."
+   - Verify the PR exists with gh pr view or by opening the returned URL.
+   - If GitHub CLI is not authenticated or available, provide the exact GitHub compare URL in the form https://github.com/<owner>/<repo>/compare/<default-branch>...<feature-branch>?expand=1 and say that manual PR creation is required. Do not claim the PR was opened unless it was created successfully.

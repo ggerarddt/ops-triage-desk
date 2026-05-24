@@ -1,0 +1,122 @@
+Build a small local web application called Operational Incident Triage Desk.
+
+Workflow guardrails:
+- Treat this as a brand-new project. There is no existing local git repository and no existing GitHub repository yet.
+- Do not try to checkout master/main, pull from origin, inspect PRs, or open a pull request for this first prompt.
+- Implement only the scope in this prompt.
+- Run the app and tests that exist.
+- If the app works, initialize a new git repository, create the initial commit, create a new GitHub repository, and push the default branch.
+- Stop after the initial branch has been pushed to the new GitHub repository. Do not continue to the next prompt until a human confirms the repository is ready.
+
+Context:
+Keep the application intentionally small, easy to explain, and fully runnable. The goal is to start with a useful working slice that already has the minimum persistence and user model needed for the later supervisor approval workflow.
+
+Use:
+- Python
+- Flask
+- Plain HTML/CSS templates
+- SQLite through the Python standard library sqlite3 module
+- Werkzeug password hashing
+- No external services
+
+Goal:
+Create a simple internal tool that lets authenticated operations staff submit an incident report and receive:
+1. a severity classification,
+2. a suggested owning team,
+3. a recommended escalation path,
+4. a structured handoff summary,
+5. a mock outbound JSON payload for a ticketing or workflow system.
+
+Database and users:
+- Add a local SQLite database file, created automatically if missing.
+- Add a small schema and seed data.
+- Pre-populate exactly these demo users with default passwords:
+  - operator1 / ChangeMe123! / role operator
+  - operator2 / ChangeMe123! / role operator
+  - supervisor1 / ChangeMe123! / role supervisor
+- Store hashed passwords, not plaintext passwords.
+- Add login and logout.
+- Keep sessions simple and local.
+- Require login before triage, audit, or admin pages.
+
+Functional requirements:
+- A login page.
+- A triage web form with these fields:
+  - title
+  - description
+  - business area
+  - system affected
+  - impact level: low, medium, high
+  - urgency: low, medium, high
+  - customer impact: yes, no
+- A rules-based severity function that classifies incidents as P1, P2, P3, or P4:
+  - P1: high impact or high urgency with customer impact yes
+  - P2: high impact without customer impact, or medium impact with high urgency
+  - P3: medium impact or medium urgency
+  - P4: everything else
+- A keyword-based routing function that maps incidents to one of:
+  - API Integration Team
+  - Data Platform Team
+  - Customer Operations Team
+  - Infrastructure Team
+- A result view that shows:
+  - severity
+  - severity description
+  - suggested owner team
+  - escalation recommendation
+  - structured handoff summary
+  - mock outbound JSON payload
+- Include three one-click example incident buttons on the triage page:
+  - Public Administration: benefits API returning intermittent 502 errors
+  - Postal Service: mail sorting ETL pipeline stalled
+  - National Research Center: data warehouse nearing disk capacity
+- The example buttons must populate the form fields when clicked in Firefox and Chromium.
+
+Role requirements:
+- Operators can access only:
+  - triage
+  - audit
+- Supervisors can access:
+  - triage
+  - audit
+  - admin
+- The first admin page may be a small placeholder in this prompt, but the route and navigation must exist for supervisors only.
+
+Non-functional requirements:
+- Keep the UI clean, simple, and work-focused.
+- Use clear function names and simple control flow.
+- Add comments only where they help explain business rules.
+- Use Jinja rendering safely; do not manually concatenate HTML.
+- Include local run instructions.
+
+Suggested initial structure:
+- app.py
+- db.py
+- auth.py
+- rules.py
+- templates/login.html
+- templates/index.html
+- templates/result.html
+- templates/audit.html
+- templates/admin.html
+- static/app.js if needed for example button behavior
+- requirements.txt
+- README.md
+
+Instructions:
+1. Create the project structure.
+2. Generate the working code.
+3. Keep this first version minimal but complete.
+4. Verify the example auto-fill buttons populate fields in the browser-facing UI.
+5. Briefly explain the structure and which file to open first during the demo.
+6. Provide exact commands to install dependencies, initialize or run the app locally, and log in with the seeded users.
+7. Initialize git only after the app has been created and verified:
+   - git init -b main
+   - git add .
+   - git commit -m "Build initial incident triage desk"
+8. Create a new GitHub repository for this project and push the default branch:
+   - Prefer GitHub CLI if available, for example:
+     - gh repo create operational-incident-triage-desk --private --source=. --remote=origin --push
+   - If that repository name is unavailable, choose a clear available variant and report the final URL.
+   - If GitHub CLI is not authenticated or available, stop and provide the exact commands needed to create the repository, add origin, and push. Do not pretend the repository was created.
+9. Stop after the initial commit is pushed to the new GitHub repository. Do not open a pull request for this first prompt.

@@ -1,0 +1,101 @@
+Refactor the Operational Incident Triage Desk into a more production-shaped structure without making it large.
+
+Workflow guardrails:
+- Before doing any work, confirm this is an existing git repository with a GitHub remote:
+  - git status
+  - git remote -v
+- Detect the repository's default branch from GitHub or the remote configuration. Do not assume it is named master.
+- Switch to the default branch and pull the latest code from GitHub:
+  - git checkout <default-branch>
+  - git pull --ff-only origin <default-branch>
+- Confirm the previous prompt's initial repository push is present on the default branch before starting.
+- Create a new feature branch for this prompt.
+- Implement only the scope in this prompt.
+- Run the full test suite that exists, plus a manual smoke test if practical.
+- Push the feature branch and open a pull request against the default branch.
+- Pushing the branch is not sufficient; PR creation is a required final action unless blocked by authentication or tooling.
+- Stop only after the pull request has actually been created and report its URL. Do not continue to the next prompt until a human merges the PR on GitHub.
+
+Context:
+Evolve from a useful prototype into a maintainable service shape while preserving the same user-visible behavior, login flow, seeded SQLite users, role-based navigation, and example auto-fill buttons.
+
+Refactoring goals:
+- Separate HTTP/UI code from business logic.
+- Separate authentication/session helpers from incident triage logic.
+- Move SQLite schema creation and seed data into focused database code.
+- Move severity, routing, summary, and integration logic into focused modules.
+- Move configurable mappings into a configuration module.
+- Add simple domain models.
+- Add a JSON API endpoint for downstream/internal automation.
+- Add structured logging.
+
+Required structure:
+- app.py
+  - Flask bootstrap only: create the app and register routes.
+- router.py
+  - Route registration and request/response handling.
+  - Keep parsing and presentation helpers small and readable.
+- core/
+  - models.py for Incident, TriageResult, and User dataclasses.
+  - config.py for severity descriptions, team keywords, default team, seed incidents, and seed users.
+  - database.py for SQLite connection, schema initialization, and seed loading.
+  - summary_service.py for the handoff summary builder.
+- services/
+  - auth_service.py for user lookup and password verification.
+  - severity_service.py for classify_severity() and get_severity_description().
+  - routing_service.py for route_team() and escalation_recommendation().
+  - triage_service.py for orchestration of the full triage pipeline.
+- integrations/
+  - mock_integrator.py for build_mock_payload().
+- templates/
+  - login.html
+  - index.html
+  - result.html
+  - audit.html
+  - admin.html
+- static/app.js if needed for example button behavior.
+- requirements.txt
+- README.md
+
+Functional requirements:
+- Preserve the existing login, logout, triage form, result view, audit view, and supervisor-only admin navigation.
+- Preserve the seeded SQLite users:
+  - operator1 / ChangeMe123! / operator
+  - operator2 / ChangeMe123! / operator
+  - supervisor1 / ChangeMe123! / supervisor
+- Add POST /api/triage that accepts JSON from an authenticated user and returns JSON with:
+  - original normalized input
+  - severity
+  - suggested team
+  - escalation recommendation
+  - structured summary
+  - mock payload
+- Keep the same severity rules and routing teams.
+- Keep the three demo seed incidents and example auto-fill buttons.
+- The mock integration adapter should only build a payload. It must not perform a real HTTP call.
+
+Engineering requirements:
+- Use dataclasses for domain objects.
+- Use dependency direction that keeps services independent from Flask.
+- Keep database access small and explicit.
+- Avoid global business logic in app.py.
+- Keep route handlers thin enough to explain.
+- Log triage completion with incident severity and team.
+- Do not log raw sensitive incident descriptions if avoidable.
+- Preserve simple local execution with python app.py.
+
+Regression requirement:
+- While refactoring, protect the example auto-fill behavior. Do not leave the buttons as inert submit buttons. If JavaScript is used, load it from the template correctly and test the DOM ids/names used by the script.
+
+Instructions:
+1. Refactor the code into the required structure.
+2. Preserve existing behavior while adding the JSON API.
+3. Remove duplicated logic introduced by the refactor.
+4. Run tests and a quick manual check of login plus example auto-fill buttons.
+5. Briefly explain what changed and why it improves maintainability.
+6. List the most important files to open.
+7. Push the branch and open a pull request, then stop:
+   - git push -u origin <feature-branch>
+   - gh pr create --base <default-branch> --head <feature-branch> --title "Refactor incident triage desk structure" --body "Summary: <what changed>. Tests: <commands run>. Manual checks: <what was checked>."
+   - Verify the PR exists with gh pr view or by opening the returned URL.
+   - If GitHub CLI is not authenticated or available, provide the exact GitHub compare URL in the form https://github.com/<owner>/<repo>/compare/<default-branch>...<feature-branch>?expand=1 and say that manual PR creation is required. Do not claim the PR was opened unless it was created successfully.
