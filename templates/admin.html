@@ -189,7 +189,8 @@
                         <td>{{ inc.submitted_by }}</td>
                         <td>{{ inc.submitted_at[:16] }}</td>
                         <td class="actions">
-                            <form action="{{ url_for('admin_approve') }}" method="POST" style="display:inline;" class="approve-form" data-incident-id="{{ inc.id }}">
+                            <form action="{{ url_for('admin_approve') }}" method="POST" style="display:inline;" class="approve-form">
+                                <input type="hidden" name="incident_id" value="{{ inc.id }}">
                                 <button type="submit" class="btn btn-success btn-sm">Approve</button>
                             </form>
                             <form action="{{ url_for('admin_deny') }}" method="POST" style="display:inline;" class="deny-form" data-incident-id="{{ inc.id }}">
