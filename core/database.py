@@ -81,11 +81,24 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 """
 
+# Migration DDL for existing databases that pre-date PR #4 governance changes
+MIGRATION_SQL: str = """\
+ALTER TABLE incidents ADD COLUMN status TEXT NOT NULL DEFAULT 'approved';
+ALTER TABLE incidents ADD COLUMN severity_level INTEGER NOT NULL DEFAULT 4;
+"""
+
 
 def init_schema(db_path: str | None = None) -> None:
     """Execute schema DDL so tables exist before any app code runs."""
     with session(db_path) as conn:
         conn.executescript(SCHEMA_SQL)
+
+        # Safely apply migration DDL — SQLite silently ignores errors when
+        # the column / table already exists (e.g. on fresh or already-migrated DBs).
+        try:
+            conn.executescript(MIGRATION_SQL)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
