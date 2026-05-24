@@ -1,0 +1,86 @@
+Add tests to the Operational Incident Triage Desk so the demo can show reliability and safe change.
+
+Workflow guardrails:
+- Before doing any work, confirm this is an existing git repository with a GitHub remote:
+  - git status
+  - git remote -v
+- Detect the repository's default branch from GitHub or the remote configuration. Do not assume it is named master.
+- Switch to the default branch and pull the latest code from GitHub:
+  - git checkout <default-branch>
+  - git pull --ff-only origin <default-branch>
+- Confirm the previous prompt's PR has been merged before starting.
+- Create a new feature branch for this prompt.
+- Implement only the scope in this prompt.
+- Run the full test suite.
+- Push the feature branch and open a pull request against the default branch.
+- Pushing the branch is not sufficient; PR creation is a required final action unless blocked by authentication or tooling.
+- Stop only after the pull request has actually been created and report its URL. Do not continue to the next prompt until a human merges the PR on GitHub.
+
+Context:
+The app now has a clearer structure, SQLite-backed demo users, login, role-based navigation, triage, audit, and a supervisor-only admin route. Keep the tests fast, readable, and focused on behavior rather than implementation details.
+
+Testing goals:
+- Verify severity classification.
+- Verify routing logic.
+- Verify escalation recommendation text at a practical level.
+- Verify login, logout, access control, the JSON API, and the main Flask form endpoint.
+- Verify malformed or incomplete input does not crash the app.
+- Verify the example auto-fill buttons are wired to real form fields.
+
+Requirements:
+- Use pytest.
+- Add pytest to requirements.txt if needed.
+- Add pytest.ini if useful.
+- Add a simple run_tests.sh helper if useful.
+- Tests should run with:
+  - python -m pytest tests/ -v
+- Tests must use an isolated temporary SQLite database, not the developer's local demo database.
+- Seed the temporary database with the default users during test setup.
+
+Required test files:
+- tests/test_severity.py
+  - Cover P1, P2, P3, P4 boundaries.
+  - Include edge cases such as empty strings and unexpected casing.
+- tests/test_routing.py
+  - Cover each supported owner team.
+  - Cover default team fallback.
+  - Cover tie or best-match behavior if the implementation has it.
+- tests/test_auth.py
+  - Cover successful login for operator1 and supervisor1.
+  - Cover invalid login.
+  - Cover operator cannot access /admin.
+  - Cover supervisor can access /admin.
+- tests/test_integration.py
+  - Cover GET / redirecting to login when unauthenticated.
+  - Cover GET / after login.
+  - Cover POST /triage with form data.
+  - Cover POST /api/triage with JSON.
+  - Assert the API response includes severity, team, escalation, summary, and mock_payload.
+  - Assert mock_payload is valid JSON.
+  - Include at least one malformed or incomplete payload test and ensure the endpoint returns either a clear 400 or a graceful non-500 response.
+- tests/test_regression_js_fill.py
+  - Parse the rendered triage page and assert the example buttons carry machine-readable example data or target a script that exists.
+  - Assert every field referenced by the example-button code exists in the form.
+  - This regression test exists because generated code often breaks the one-click example buttons.
+
+Engineering requirements:
+- Do not change visible app behavior unless required for testability.
+- If refactoring is needed, keep it small and explain it.
+- Use Flask's test_client rather than starting a server in tests.
+- Keep tests deterministic.
+- Avoid assertions that are too brittle, such as checking the entire HTML document.
+- Do not introduce a real external service.
+
+Instructions:
+1. Add the tests and test configuration.
+2. Run the test suite.
+3. Fix any failures caused by unclear boundaries or accidental coupling.
+4. Summarize:
+   - what is covered,
+   - what remains intentionally out of scope,
+   - the exact test command.
+5. Push the branch and open a pull request, then stop:
+   - git push -u origin <feature-branch>
+   - gh pr create --base <default-branch> --head <feature-branch> --title "Add incident triage desk test coverage" --body "Summary: <what changed>. Tests: <commands run and results>."
+   - Verify the PR exists with gh pr view or by opening the returned URL.
+   - If GitHub CLI is not authenticated or available, provide the exact GitHub compare URL in the form https://github.com/<owner>/<repo>/compare/<default-branch>...<feature-branch>?expand=1 and say that manual PR creation is required. Do not claim the PR was opened unless it was created successfully.
