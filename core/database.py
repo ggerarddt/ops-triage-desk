@@ -170,6 +170,106 @@ def list_incidents(db_path: str | None = None) -> list[sqlite3.Row]:
         ).fetchall()
 
 
+def _incident_row_to_dict(row: sqlite3.Row) -> dict:
+    """Convert a sqlite3.Row to a plain dict."""
+    return dict(row)
+
+
+def get_by_id(incident_id: int, db_path: str | None = None) -> dict | None:
+    """Fetch a single incident by its primary key, or None if not found."""
+    with session(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM incidents WHERE id = ?", (incident_id,)
+        ).fetchone()
+        return _incident_row_to_dict(row) if row else None
+
+
+def get_pending_p1s(db_path: str | None = None) -> list[sqlite3.Row]:
+    """Return P1 incidents with pending approval status."""
+    with session(db_path) as conn:
+        return conn.execute(
+            "SELECT * FROM incidents"
+            " WHERE severity = 'P1' AND status = 'pending'"
+            " ORDER BY submitted_at DESC"
+        ).fetchall()
+
+
+def get_all_filtered_by(
+        status: str | None = None,
+        severity: str | None = None,
+        db_path: str | None = None,
+) -> list[sqlite3.Row]:
+    """Return incidents filtered by optional status and severity criteria."""
+    clauses: list[str] = []
+    params: list = []
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if severity:
+        clauses.append("severity = ?")
+        params.append(severity)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    with session(db_path) as conn:
+        return conn.execute(
+            f"SELECT * FROM incidents{where} ORDER BY submitted_at DESC", params
+        ).fetchall()
+
+
+def approve(incident_id: int, reason: str | None = None, db_path: str | None = None) -> None:
+    """Change a pending incident's status to approved."""
+    with session(db_path) as conn:
+        conn.execute(
+            "UPDATE incidents SET status = 'approved' WHERE id = ? AND status = 'pending'",
+            (incident_id,),
+        )
+
+
+def deny(incident_id: int, reason: str, db_path: str | None = None) -> None:
+    """Deny a pending incident."""
+    with session(db_path) as conn:
+        conn.execute(
+            "UPDATE incidents SET status = 'denied' WHERE id = ? AND status = 'pending'",
+            (incident_id,),
+        )
+
+
+def reclassify(
+        incident_id: int, new_severity: str, db_path: str | None = None
+) -> None:
+    """Reclassify a pending P1 to a lower severity and auto-approve."""
+    new_level = severity_to_level(new_severity)
+    with session(db_path) as conn:
+        conn.execute(
+            "UPDATE incidents"
+            " SET severity = ?, severity_level = ?, status = 'approved'"
+            " WHERE id = ? AND severity = 'P1' AND status = 'pending'",
+            (new_severity, new_level, incident_id),
+        )
+
+
+def update_pending(
+        incident_id: int,
+        title: str,
+        description: str,
+        business_area: str,
+        system_affected: str,
+        impact_level: str,
+        urgency: str,
+        customer_impact: str,
+        db_path: str | None = None,
+) -> None:
+    """Update editable fields on a pending incident."""
+    with session(db_path) as conn:
+        conn.execute(
+            "UPDATE incidents"
+            " SET title = ?, description = ?, business_area = ?, system_affected = ?,"
+            " impact_level = ?, urgency = ?, customer_impact = ?"
+            " WHERE id = ? AND status = 'pending'",
+            (title, description, business_area, system_affected, impact_level, urgency,
+             customer_impact, incident_id),
+        )
+
+
 def save_audit_log(entry: dict, db_path: str | None = None) -> None:
     """Record an audit trail entry."""
     with session(db_path) as conn:

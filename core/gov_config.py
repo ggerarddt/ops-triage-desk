@@ -31,4 +31,13 @@ P1_APPROVAL_ENABLED = True
 # Approval status constants
 APPROVAL_STATUS_PENDING = "pending"
 APPROVAL_STATUS_APPROVED = "approved"
+APPROVAL_STATUS_DENIED = "denied"
 APPROVAL_STATUS_REJECTED = "rejected"
+APPROVAL_STATUS_RECLASSIFIED = "reclassified"
+
+# Allowed reclassification targets (must be lower than P1)
+ALLOWED_RECLASSIFY_TARGETS = ("P2", "P3", "P4")
+
+# Admin-specific constants
+ADMINS = ["supervisor1"]
+ADMIN_PASSWORD = "ChangeMe123!"
