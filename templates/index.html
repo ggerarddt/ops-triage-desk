@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Triage Desk - Triage</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: #1a1a2e;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.7rem 1.5rem;
+            flex-wrap: wrap;
+        }
+        .navbar .brand {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-right: auto;
+        }
+        .nav-links {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+        }
+        .nav-links a {
+            color: #ccc;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .nav-links a:hover, .nav-links a.active {
+            color: #fff;
+        }
+        .nav-links .role-badge {
+            background: #4a6cf7;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-left: 0.3rem;
+        }
+
+        /* Main container */
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .flash-messages { margin-bottom: 1rem; }
+        .flash {
+            padding: 0.6rem 1rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+        .flash.danger { background: #ffe0e0; color: #900; }
+        .flash.warning { background: #fff3cd; color: #856404; }
+        .flash.success { background: #d4edda; color: #155724; }
+        .flash.info { background: #d1ecf1; color: #0c5460; }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+            color: #1a1a2e;
+        }
+        .section-subtitle {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1.2rem;
+        }
+
+        /* Example incident buttons */
+        .examples { margin-bottom: 1.5rem; }
+        .examples h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+            color: #444;
+        }
+        .example-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .example-btn {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 0.45rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            text-align: left;
+        }
+        .example-btn:hover {
+            background: #4a6cf7;
+            color: #fff;
+            border-color: #4a6cf7;
+        }
+
+        /* Form */
+        .triage-form {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .form-group {
+            margin-bottom: 0.1rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            color: #444;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem 0.7rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 2px rgba(74,108,247,0.15);
+        }
+
+        .btn-submit {
+            display: inline-block;
+            padding: 0.65rem 1.8rem;
+            background: #4a6cf7;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-submit:hover { background: #3451d1; }
+
+        @media (max-width: 600px) {
+            .form-row { flex-direction: column; gap: 0; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">Incident Triage Desk</div>
+        <div class="nav-links">
+            <a href="{{ url_for('triage') }}" class="active">Triage</a>
+            <a href="{{ url_for('audit') }}">Audit</a>
+            {% if session.role == 'supervisor' %}
+            <a href="{{ url_for('admin') }}">Admin</a>
+            {% endif %}
+            <span class="role-badge">{{ session.role }}</span>
+            <span>{{ session.username }}</span>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+            {% endwith %}
+        </div>
+
+        <h1 class="section-title">New Incident Report</h1>
+        <p class="section-subtitle">Fill in the fields below or use one of the predefined examples.</p>
+
+        <div class="examples">
+            <h3>Quick-load examples:</h3>
+            <div class="example-buttons">
+                <button type="button" class="example-btn"
+                        data-title="Benefits API - Intermittent 502 Errors"
+                        data-description="The benefits REST API is returning intermittent HTTP 502 Bad Gateway errors during peak hours. All endpoints are affected. On-call has been page."
+                        data-business_area="Public Administration"
+                        data-system_affected="Benefits API"
+                        data-impact_level="high"
+                        data-urgency="high"
+                        data-customer_impact="yes">
+                    Public Admin: Benefits API 502
+                </button>
+                <button type="button" class="example-btn"
+                        data-title="Mail Sorting ETL Pipeline Stalled"
+                        data-description="The nightly ETL pipeline for the mail sorting system has been stalled for 4 hours. No records are being processed or transformed into the production database."
+                        data-business_area="Postal Service"
+                        data-system_affected="Mail Sorting Data Pipeline"
+                        data-impact_level="medium"
+                        data-urgency="high"
+                        data-customer_impact="no">
+                    Postal Service: ETL Pipeline Stalled
+                </button>
+                <button type="button" class="example-btn"
+                        data-title="Data Warehouse Disk Capacity Warning"
+                        data-description="The national research data warehouse is at 92% disk capacity. The monitoring system has triggered a warning alert. If capacity is not free, ingestion jobs will begin failing within 48 hours."
+                        data-business_area="National Research Center"
+                        data-system_affected="Data Warehouse"
+                        data-impact_level="high"
+                        data-urgency="medium"
+                        data-customer_impact="no">
+                    Research Center: Disk Capacity Warning
+                </button>
+            </div>
+        </div>
+
+        <form class="triage-form" id="triageForm" action="{{ url_for('triage_submit') }}" method="POST">
+            <div class="form-group">
+                <label for="title">Title</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" required></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="business_area">Business Area</label>
+                    <input type="text" id="business_area" name="business_area" required>
+                </div>
+                <div class="form-group">
+                    <label for="system_affected">System Affected</label>
+                    <input type="text" id="system_affected" name="system_affected" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="impact_level">Impact Level</label>
+                    <select id="impact_level" name="impact_level" required>
+                        <option value="">-- Select --</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="urgency">Urgency</label>
+                    <select id="urgency" name="urgency" required>
+                        <option value="">-- Select --</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="customer_impact">Customer Impact</label>
+                    <select id="customer_impact" name="customer_impact" required>
+                        <option value="">-- Select --</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn-submit">Classify Incident</button>
+        </form>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

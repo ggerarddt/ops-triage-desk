@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Triage Desk - Result</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f9f9f9;
+            color: #333;
+            line-height: 1.6;
+        }
+        .navbar {
+            background: #2c3e50;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 2rem;
+            flex-wrap: wrap;
+        }
+        .navbar .brand { font-weight: 700; font-size: 1.2rem; }
+        .navbar .nav-links a { color: #ecf0f1; text-decoration: none; margin-left: 1.5rem; }
+        .navbar .nav-links a:hover { color: #3498db; }
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+        .result-box {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .result-box h2 { color: #2c3e50; margin-bottom: 0.5rem; }
+        .result-box h1 { margin-bottom: 1rem; }
+        fieldset {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        legend { font-weight: 700; color: #2c3e50; }
+        .field-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+        .field-item { flex: 1; min-width: 150px; }
+        .field-item label { display: block; font-size: 0.8rem; color: #7f8c8d; text-transform: uppercase; }
+        .field-item span { font-size: 1rem; font-weight: 600; }
+        .severity-P1 { color: #e74c3c; }
+        .severity-P2 { color: #e67e22; }
+        .severity-P3 { color: #f1c40f; }
+        .severity-P4 { color: #95a5a6; }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: #3498db;
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="brand">Incident Triage Desk</div>
+        <div class="nav-links">
+            <a href="{{ url_for('triage') }}">Triage</a>
+            <a href="{{ url_for('audit') }}">Audit</a>
+            {% if session.role == 'supervisor' %}
+            <a href="{{ url_for('admin') }}">Admin</a>
+            {% endif %}
+            <a href="{{ url_for('logout') }}">Logout ({{ session.username }})</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="result-box">
+            <h1>Classification Result</h1>
+
+            <fieldset>
+                <legend>Incident Details</legend>
+                <div class="field-row">
+                    <div class="field-item"><label>Title</label><span>{{ result.title }}</span></div>
+                    <div class="field-item"><label>Business Area</label><span>{{ result.business_area }}</span></div>
+                </div>
+                <div class="field-row">
+                    <div class="field-item"><label>System Affected</label><span>{{ result.system_affected }}</span></div>
+                    <div class="field-item"><label>Impact</label><span>{{ result.impact_level|title }}</span></div>
+                    <div class="field-item"><label>Urgency</label><span>{{ result.urgency|title }}</span></div>
+                    <div class="field-item"><label>Customer Impact</label><span>{{ result.customer_impact|title }}</span></div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Classification</legend>
+                <div class="field-row">
+                    <div class="field-item">
+                        <label>Severity</label>
+                        <span class="severity-{{ result.severity }}">{{ result.severity }}</span>
+                    </div>
+                    <div class="field-item"><label>Team</label><span>{{ result.suggested_team }}</span></div>
+                </div>
+                <p style="margin-top:0.5rem;"><strong>Description:</strong> {{ result.severity_description }}</p>
+                <p><strong>Escalation:</strong> {{ result.escalation_recommendation }}</p>
+            </fieldset>
+
+            <fieldset>
+                <legend>Handoff Summary</legend>
+                <p>{{ result.handoff_summary }}</p>
+            </fieldset>
+
+            <fieldset>
+                <legend>Mock Outbound Payload</legend>
+                <pre>{{ result.mock_payload|tojson(indent=2) }}</pre>
+            </fieldset>
+
+            <a href="{{ url_for('triage') }}" class="back-link">&larr; Submit another incident</a>
+        </div>
+    </div>
+</body>
+</html>
