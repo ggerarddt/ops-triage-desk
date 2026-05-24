@@ -216,6 +216,22 @@ class TestAdminApprove:
         })
         assert resp.status_code == 302
 
+    def test_approve_form_has_incident_id_in_template(self, client, test_db_path):
+        """Regression: approve form must contain a hidden incident_id input."""
+        _submit_p1(client)
+        _login_supervisor(client)
+        resp = client.get("/admin")
+        assert resp.status_code == 200
+        html = resp.data.decode()
+        # The HTML should contain the hidden input in each approve form
+        # Count how many times the admin_approve form appears with the hidden input
+        approve_form_count = html.count('action="{{ url_for(\'admin_approve\') }}"')
+        hidden_id_count = html.count('name="incident_id"')
+        assert hidden_id_count >= approve_form_count, (
+            f"Approve forms ({approve_form_count}) must have "
+            f"matching name='incident_id' hidden inputs (found {hidden_id_count})"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Deny
