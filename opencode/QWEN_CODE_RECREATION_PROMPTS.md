@@ -87,6 +87,9 @@ Only after all 6 steps pass, begin implementation.
 
 Run in strict order. Do NOT skip any step.
 
+Before running Python commands, ensure the virtual environment is active:
+     source .venv/bin/activate   # only needed if not already active in the shell session
+
 1. Run the full test suite one final time; all tests must pass:
      python -m pytest tests/ -v
 
@@ -172,7 +175,11 @@ This is a brand-new project. There is no existing git repository.
      #   incidents.db
      #   __pycache__/
      #   *.pyc
+     #   *.pyo
      #   .pytest_cache/
+     #   .venv/
+     #   .aider/
+     #   .opencode/
 
      # Write a one-line README.md placeholder:
      #   # Ops-Triage-Desk
@@ -193,9 +200,25 @@ This is a brand-new project. There is no existing git repository.
 
      git checkout -b feat/1-prototype
 
+4. Set up the Python environment:
+
+     # Confirm Python 3.10 or later is available
+     python3 --version
+     # → must print Python 3.10.x or later. If not, STOP and report.
+
+     # Create a virtual environment (skip if .venv already exists)
+     python3 -m venv .venv
+
+     # Activate it and install dependencies
+     source .venv/bin/activate
+     pip install -r requirements.txt
+
+   Add `.venv/` to .gitignore if it is not already there (it should be).
+   Confirm .venv/ is not staged in git:  git status --short  → no .venv entries.
+
    If any step fails, STOP and report the error. Do not proceed.
 
-After all steps pass, begin implementation.
+After all steps pass (steps 1–4), begin implementation.
 
 ============================================================
 STEP 1 — IMPLEMENTATION
@@ -345,7 +368,10 @@ README.md          — how to run, seeded users, brief architecture
 .gitignore
 
 # Acceptance Criteria (verify before finishing)
-  [ ] `pip install -r requirements.txt && python app.py` starts on :5000 with no errors
+  [ ] Python 3.10+ is confirmed and `.venv/` is active in the shell session
+  [ ] `pip list | grep -iE "flask|werkzeug"` shows both packages installed in the venv
+  [ ] `.venv/` does NOT appear in `git status --short`
+  [ ] `source .venv/bin/activate && python app.py` starts on :5000 with no errors
   [ ] /login → operator1 / ChangeMe123! → redirect to /triage
   [ ] Triage page shows 3 example buttons; clicking one populates all 7 fields
   [ ] Submit form (Example 1) → result shows P1, API Integration Team, correct handoff text
@@ -357,6 +383,9 @@ README.md          — how to run, seeded users, brief architecture
 ============================================================
 FINAL STEPS
 ============================================================
+
+Ensure the venv is active before running any Python command:
+     source .venv/bin/activate
 
 1. Run the final acceptance checklist above. All items must be checked.
 
@@ -451,7 +480,12 @@ STOP if any check fails; report to the user and wait for instruction.
 
 5. git checkout <default-branch> && git pull --ff-only origin <default-branch>
 
-6. git checkout -b feat/2-refactor
+6. Activate the virtual environment and verify dependencies:
+     source .venv/bin/activate
+     pip list | grep -iE "flask|werkzeug"
+   → both packages must be visible. If not, run:  pip install -r requirements.txt
+
+7. git checkout -b feat/2-refactor
 
 Only after all steps pass, begin implementation.
 
@@ -562,6 +596,9 @@ Do NOT log raw description text.
 FINAL STEPS
 ============================================================
 
+Ensure the venv is active before running any Python command:
+     source .venv/bin/activate
+
 1. python -m pytest tests/ -v    (will produce 0 tests; that's fine — test suite added in PR #3)
    Confirm the app itself still works per the acceptance checklist above.
 
@@ -643,7 +680,11 @@ STOP if any check fails; report to the user and wait for instruction.
    → most recent must be the refactor PR (PR #2)
 4. git status --short  → must be empty
 5. git checkout <default-branch> && git pull --ff-only origin <default-branch>
-6. git checkout -b feat/3-tests
+6. Activate the virtual environment and verify dependencies:
+     source .venv/bin/activate
+     pip list | grep -iE "flask|werkzeug"
+   → both packages must be visible. If not, run:  pip install -r requirements.txt
+7. git checkout -b feat/3-tests
 
 Only after all steps pass, begin.
 
@@ -826,6 +867,9 @@ ACCEPTANCE CRITERIA
 FINAL STEPS
 ============================================================
 
+Ensure the venv is active before running any Python command:
+     source .venv/bin/activate
+
 1. python -m pytest tests/ -v
    → record the test count and confirm 0 failures.
 
@@ -905,8 +949,12 @@ STOP if any check fails; report to the user and wait for instruction.
    → most recent must be the test suite PR (PR #3)
 4. git status --short  → must be empty
 5. git checkout <default-branch> && git pull --ff-only origin <default-branch>
-6. python -m pytest tests/ -v  → all tests must pass before you begin
-7. git checkout -b feat/4-governance
+6. Activate the virtual environment and verify dependencies:
+     source .venv/bin/activate
+     pip list | grep -iE "flask|werkzeug"
+   → both packages must be visible. If not, run:  pip install -r requirements.txt
+7. python -m pytest tests/ -v  → all tests must pass before you begin
+8. git checkout -b feat/4-governance
 
 Only after all steps pass, begin.
 
@@ -1106,6 +1154,9 @@ ACCEPTANCE CRITERIA
 FINAL STEPS
 ============================================================
 
+Ensure the venv is active before running any Python command:
+     source .venv/bin/activate
+
 1. python -m pytest tests/ -v
    → ALL tests must pass. Record the count.
 
@@ -1189,8 +1240,12 @@ STOP if any check fails; report to the user and wait for instruction.
    → most recent must be the governance PR (PR #4)
 4. git status --short  → must be empty
 5. git checkout <default-branch> && git pull --ff-only origin <default-branch>
-6. python -m pytest tests/ -v  → all tests must pass before starting
-7. git checkout -b feat/5-admin
+6. Activate the virtual environment and verify dependencies:
+     source .venv/bin/activate
+     pip list | grep -iE "flask|werkzeug"
+   → both packages must be visible. If not, run:  pip install -r requirements.txt
+7. python -m pytest tests/ -v  → all tests must pass before starting
+8. git checkout -b feat/5-admin
 
 Only after all steps pass, begin.
 
@@ -1504,6 +1559,9 @@ ACCEPTANCE CRITERIA (manual smoke test — do this before committing)
 FINAL STEPS
 ============================================================
 
+Ensure the venv is active before running any Python command:
+     source .venv/bin/activate
+
 1. python -m pytest tests/ -v
    → ALL tests pass. Record count.
 
@@ -1587,8 +1645,12 @@ STOP if any check fails; report to the user and wait for instruction.
    → most recent must be the admin workflow PR (PR #5)
 4. git status --short  → must be empty
 5. git checkout <default-branch> && git pull --ff-only origin <default-branch>
-6. python -m pytest tests/ -v  → all tests must pass
-7. git checkout -b feat/6-polish
+6. Activate the virtual environment and verify dependencies:
+     source .venv/bin/activate
+     pip list | grep -iE "flask|werkzeug"
+   → both packages must be visible. If not, run:  pip install -r requirements.txt
+7. python -m pytest tests/ -v  → all tests must pass
+8. git checkout -b feat/6-polish
 
 ============================================================
 STEP 1 — IMPLEMENTATION
@@ -1728,6 +1790,9 @@ ACCEPTANCE CRITERIA
 ============================================================
 FINAL STEPS
 ============================================================
+
+Ensure the venv is active before running any Python command:
+     source .venv/bin/activate
 
 1. python -m pytest tests/ -v
    → ALL tests pass. Record count.

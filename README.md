@@ -109,16 +109,44 @@ All submissions, approvals, denials, reclassifications, and edits are recorded i
 
 ## How to Run Locally
 
+### Requirements
+
+- Python 3.10 or later
+- No system packages beyond the interpreter itself
+
+### Step 1 — Set up the environment
+
 ```bash
-cd /home/demouser/demos/ops-triage-desk
+# Navigate to the repository
+cd <repo-directory>
+
+# Create a virtual environment (skip if .venv already exists)
+python3 -m venv .venv
+
+# Activate it
+source .venv/bin/activate       # Linux / macOS
+# .venv\Scripts\activate        # Windows CMD
+# $env:Path = ".venv\Scripts;$env:Path"; .venv\Scripts\Activate.ps1   # Windows PowerShell
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### Step 2 — Run the app
+
+```bash
+# With the virtual environment active:
 python app.py
 ```
 
-Navigate to http://localhost:5000
+The app starts on [http://localhost:5000](http://localhost:5000).
+
+Log in with one of the seeded users (see Seeded Users table above).
 
 ## How to Run Tests
 
 ```bash
+# From the repository root, with the virtual environment active:
 python -m pytest tests/ -v
 ```
 
@@ -127,3 +155,6 @@ Run only a specific test file:
 python -m pytest tests/test_admin.py -v
 python -m pytest tests/test_governance.py -v
 ```
+
+> **Tip:** Add a `Makefile` entry or an alias for `source .venv/bin/activate && python app.py`
+> once your environment is set up.
